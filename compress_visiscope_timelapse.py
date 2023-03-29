@@ -22,6 +22,36 @@ def main():
     args = parser.parse_args()
     sites = _parse_sites_multiple_folders(args.flds)
 
+# %%
+
+    for site in sites:
+        channel_stacks = []
+        for channel in sites[Path(site)]:
+            fns = sites[site][channel]
+            imgs = []
+            for fn in fns:
+                print(fn)
+                imgs.append(iio.imread(fn))
+            imgs_stacked = np.stack(imgs, axis=0) 
+            channel_stacks.append(imgs_stacked)
+        stacks_combined = np.stack(channel_stacks, axis = 0)
+
+        stack_si = to_spatial_image(
+            np.moveaxis(stacks_combined, 0, -1), dims=("t", "z", "y", "x", "c"), scale={"t": 1, "z": 3, "y": 0.325, "x": 0.325}
+        )
+        stack_msi = to_multiscale(
+            stack_si,
+            scale_factors=[
+                {"z": 1, "y": 2, "x": 2},
+                {"z": 1, "y": 2, "x": 2},
+                {"z": 1, "y": 2, "x": 2},
+            ],
+            # method=Methods.DASK_IMAGE_GAUSSIAN,
+        ).compute()
+
+        store = zarr.storage.DirectoryStore(site, dimension_separator='/')
+        stack_msi.to_zarr(store)
+
 
 # %%
 def _parse_parameter_file(fn: str) -> dict[str, str]:
