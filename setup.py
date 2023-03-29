@@ -10,6 +10,7 @@ setup(
         "imageio",
         "spatial_image",
         "multiscale_spatial_image",
+        "zarr",
     ],
     author="Max Hess",
     author_email="max.hess@mls.uzh.ch",
