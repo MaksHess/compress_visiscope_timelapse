@@ -7,11 +7,13 @@ import re
 from collections import defaultdict
 from pathlib import Path
 from typing import DefaultDict, Sequence
+import zarr
 
 import imageio.v3 as iio
 import yaml
 from multiscale_spatial_image import to_multiscale
 from spatial_image import to_spatial_image
+import numpy as np
 
 
 # %%
