@@ -6,7 +6,6 @@ import re
 from collections import defaultdict
 from pathlib import Path
 from typing import DefaultDict, Sequence
-import numpy as np
 
 import dask
 import dask.array as da
@@ -18,65 +17,49 @@ from multiscale_spatial_image import to_multiscale
 from ome_zarr.scale import Scaler
 from ome_zarr.writer import write_image, write_multiscale
 from spatial_image import to_spatial_image
-import zarr
+
 
 def main():
     parser = argparse.ArgumentParser(prog="VisiScope Timelapse to Multiscale-OME-Zarr")
+    parser.add_argument("idx", type=int)
     parser.add_argument("flds", nargs="*")
     parser.add_argument("-o", "--out_fld", type=str)
     args = parser.parse_args()
     sites = _parse_sites_multiple_folders(args.flds)
 
-    _first_site = sites[list(sites.keys())[0]]
+    out_file_names = sorted(list(sites.keys()))
+    out_file_name = out_file_names[args.idx]
+
+    _first_site = sites[out_file_name]
     _first_channel = _first_site[list(_first_site.keys())[0]]
     _first_fn = _first_channel[0]
     sample = iio.imread(_first_fn)
 
-    for out_file_name in sites:
-        channel_stacks = []
-        for channel in sites[out_file_name]:
-            fns = sites[out_file_name][channel]
-            imgs = []
-            for fn in fns:
-                print(fn)
-                imgs.append(
-                    da.from_delayed(
-                        dask.delayed(iio.imread)(fn),
-                        shape=sample.shape,
-                        dtype=sample.dtype,
-                    )
+    channel_stacks = []
+    for channel in sites[out_file_name]:
+        fns = sites[out_file_name][channel]
+        imgs = []
+        for fn in fns:
+            print(fn)
+            imgs.append(
+                da.from_delayed(
+                    dask.delayed(iio.imread)(fn),
+                    shape=sample.shape,
+                    dtype=sample.dtype,
                 )
-            imgs_stacked = np.stack(imgs, axis=0)
-            channel_stacks.append(imgs_stacked)
-        stacks_combined = np.moveaxis(np.stack(channel_stacks, axis=0), 0, 1)
+            )
+        imgs_stacked = np.stack(imgs, axis=0)
+        channel_stacks.append(imgs_stacked)
+    stacks_combined = np.moveaxis(np.stack(channel_stacks, axis=0), 0, 1)
 
-        out_file_name.mkdir(parents=True)
-        store = zarr.open(out_file_name, mode="a")
-        scaler = Scaler(method="gaussian", max_layer=5)
-        write_image(
-            stacks_combined,
-            group=store,
-            scaler=scaler,
-        )
-
-        # stack_si = to_spatial_image(
-        #     np.moveaxis(stacks_combined, 0, 1),
-        #     dims=("t", "c", "z", "y", "x"),
-        #     scale={"t": 1, "z": 3, "y": 0.325, "x": 0.325},
-        # )
-        # stack_msi = to_multiscale(
-        #     stack_si,
-        #     scale_factors=[
-        #         {"z": 1, "y": 2, "x": 2},
-        #         {"z": 1, "y": 2, "x": 2},
-        #         {"z": 1, "y": 2, "x": 2},
-        #     ],
-        #     # method=Methods.DASK_IMAGE_GAUSSIAN,
-        # )
-        # data = [stack_msi[e].image.data for e in stack_msi]
-        # out_file_name.mkdir(parents=True)
-        # store = zarr.open(out_file_name, mode="a")
-        # write_multiscale(data, store)
+    out_file_name.mkdir(parents=True)
+    store = zarr.open(out_file_name, mode="a")
+    scaler = Scaler(method="gaussian", max_layer=5)
+    write_image(
+        stacks_combined,
+        group=store,
+        scaler=scaler,
+    )
 
 
 def _parse_parameter_file(fn: str) -> dict[str, str]:

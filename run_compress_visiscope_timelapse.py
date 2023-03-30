@@ -1,13 +1,14 @@
-
-import sys
-import os
-from pathlib import Path
 import argparse
+import os
+import sys
+from pathlib import Path
+
+from compress_visiscope_timelapse import _parse_sites_multiple_folders
 
 SLURM_COMMAND = """#!/usr/bin/env bash
-#SBATCH --array=0-{0}%50
-#SBATCH --mem=125000
-#SBATCH --cpus-per-task=32
+#SBATCH --array=0-{0}%10
+#SBATCH --mem=62500
+#SBATCH --cpus-per-task=16
 #SBATCH -e errors.txt
 #SBATCH -o out.txt
 #SBATCH --time=0-10:00:00
@@ -20,12 +21,14 @@ exec python compress_visiscope_timelapse.py $SLURM_ARRAY_TASK_ID {1} -o {2}
 
 
 def main():
-    CLI = argparse.ArgumentParser()
-    CLI.add_argument("flds", nargs="*")
-    CLI.add_argument("-o", "--out_fld", type=str)
-    args = CLI.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("flds", nargs="*")
+    parser.add_argument("-o", "--out_fld", type=str)
+    args = parser.parse_args()
 
-    command = SLURM_COMMAND.format(0, ' '.join(args.flds), args.out_fld)
+    sites = _parse_sites_multiple_folders(args.flds)
+
+    command = SLURM_COMMAND.format(len(sites) - 1, " ".join(args.flds), args.out_fld)
     print(command)
     with open("temp.sh", "w") as f:
         f.write(command)
