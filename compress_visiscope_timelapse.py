@@ -7,11 +7,15 @@ from collections import defaultdict
 from pathlib import Path
 from typing import DefaultDict, Sequence
 
+import dask
+import dask.array as da
 import imageio.v3 as iio
 import numpy as np
 import yaml
 import zarr
 from multiscale_spatial_image import to_multiscale
+from ome_zarr.scale import Scaler
+from ome_zarr.writer import write_image, write_multiscale
 from spatial_image import to_spatial_image
 
 
@@ -22,35 +26,56 @@ def main():
     args = parser.parse_args()
     sites = _parse_sites_multiple_folders(args.flds)
 
-    for site in sites:
+    _first_site = sites[list(sites.keys())[0]]
+    _first_channel = _first_site[list(_first_site.keys())[0]]
+    _first_fn = _first_channel[0]
+    sample = iio.imread(_first_fn)
+
+    for out_file_name in sites:
         channel_stacks = []
-        for channel in sites[Path(site)]:
-            fns = sites[site][channel]
+        for channel in sites[out_file_name]:
+            fns = sites[out_file_name][channel]
             imgs = []
             for fn in fns:
                 print(fn)
-                imgs.append(iio.imread(fn))
+                imgs.append(
+                    da.from_delayed(
+                        dask.delayed(iio.imread)(fn),
+                        shape=sample.shape,
+                        dtype=sample.dtype,
+                    )
+                )
             imgs_stacked = np.stack(imgs, axis=0)
             channel_stacks.append(imgs_stacked)
-        stacks_combined = np.stack(channel_stacks, axis=0)
+        stacks_combined = np.moveaxis(np.stack(channel_stacks, axis=0), 0, 1)
 
-        stack_si = to_spatial_image(
-            np.moveaxis(stacks_combined, 0, -1),
-            dims=("t", "z", "y", "x", "c"),
-            scale={"t": 1, "z": 3, "y": 0.325, "x": 0.325},
+        out_file_name.mkdir(parents=True)
+        store = zarr.open(out_file_name, mode="a")
+        scaler = Scaler(method="gaussian", max_layer=5)
+        write_image(
+            stacks_combined,
+            group=store,
+            scaler=scaler,
         )
-        stack_msi = to_multiscale(
-            stack_si,
-            scale_factors=[
-                {"z": 1, "y": 2, "x": 2},
-                {"z": 1, "y": 2, "x": 2},
-                {"z": 1, "y": 2, "x": 2},
-            ],
-            # method=Methods.DASK_IMAGE_GAUSSIAN,
-        ).compute()
 
-        store = zarr.storage.DirectoryStore(site, dimension_separator="/")
-        stack_msi.to_zarr(store)
+        # stack_si = to_spatial_image(
+        #     np.moveaxis(stacks_combined, 0, 1),
+        #     dims=("t", "c", "z", "y", "x"),
+        #     scale={"t": 1, "z": 3, "y": 0.325, "x": 0.325},
+        # )
+        # stack_msi = to_multiscale(
+        #     stack_si,
+        #     scale_factors=[
+        #         {"z": 1, "y": 2, "x": 2},
+        #         {"z": 1, "y": 2, "x": 2},
+        #         {"z": 1, "y": 2, "x": 2},
+        #     ],
+        #     # method=Methods.DASK_IMAGE_GAUSSIAN,
+        # )
+        # data = [stack_msi[e].image.data for e in stack_msi]
+        # out_file_name.mkdir(parents=True)
+        # store = zarr.open(out_file_name, mode="a")
+        # write_multiscale(data, store)
 
 
 def _parse_parameter_file(fn: str) -> dict[str, str]:
@@ -67,7 +92,7 @@ def _extract_metadata_from_filename(file_name: str) -> dict[str, str]:
         "timepoint",
     ]
     pattern = re.compile(
-        r"^(?P<condition>.*)_w\d(?P<channel>[^_]+)_(?P<site>s\d+)_(?P<timepoint>t\d+)\.stk$"
+        r"^(?P<condition>.*)_(w\d)?(?P<channel>[^_]+)_(?P<site>s\d+)_(?P<timepoint>t\d+)\.stk$"
     )
     match = pattern.match(file_name)
     metadata = {k: match.group(k) for k in keys}
