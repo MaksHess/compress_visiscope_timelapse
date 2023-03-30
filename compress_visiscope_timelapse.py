@@ -6,6 +6,7 @@ import re
 from collections import defaultdict
 from pathlib import Path
 from typing import DefaultDict, Sequence
+import numpy as np
 
 import dask
 import dask.array as da
@@ -17,7 +18,7 @@ from multiscale_spatial_image import to_multiscale
 from ome_zarr.scale import Scaler
 from ome_zarr.writer import write_image, write_multiscale
 from spatial_image import to_spatial_image
-
+import zarr
 
 def main():
     parser = argparse.ArgumentParser(prog="VisiScope Timelapse to Multiscale-OME-Zarr")

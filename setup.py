@@ -11,6 +11,7 @@ setup(
         "spatial_image",
         "multiscale_spatial_image",
         "zarr",
+        "ome-zarr",
     ],
     author="Max Hess",
     author_email="max.hess@mls.uzh.ch",
