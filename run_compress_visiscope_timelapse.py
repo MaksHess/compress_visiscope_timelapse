@@ -7,8 +7,8 @@ from compress_visiscope_timelapse import _parse_sites_multiple_folders
 
 SLURM_COMMAND = """#!/usr/bin/env bash
 #SBATCH --array=0-{0}%10
-#SBATCH --mem=62500
-#SBATCH --cpus-per-task=16
+#SBATCH --mem=125000
+#SBATCH --cpus-per-task=8
 #SBATCH -e errors.txt
 #SBATCH -o out.txt
 #SBATCH --time=0-10:00:00
