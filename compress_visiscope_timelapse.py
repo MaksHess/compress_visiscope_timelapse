@@ -10,7 +10,6 @@ from typing import DefaultDict, Sequence
 import dask
 import dask.array as da
 import imageio.v3 as iio
-import numpy as np
 import yaml
 import zarr
 from multiscale_spatial_image import to_multiscale
@@ -48,13 +47,14 @@ def main():
                     dtype=sample.dtype,
                 )
             )
-        imgs_stacked = np.stack(imgs, axis=0)
+        imgs_stacked = da.stack(imgs, axis=0)
         channel_stacks.append(imgs_stacked)
-    stacks_combined = np.moveaxis(np.stack(channel_stacks, axis=0), 0, 1)
+    stacks_combined = da.moveaxis(da.stack(channel_stacks, axis=0), 0, 1)
 
     out_file_name.mkdir(parents=True)
     store = zarr.open(out_file_name, mode="a")
     scaler = Scaler(method="gaussian", max_layer=5)
+    # scaler = None
     write_image(
         stacks_combined,
         group=store,
