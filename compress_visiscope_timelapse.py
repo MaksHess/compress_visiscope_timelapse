@@ -53,8 +53,8 @@ def main():
 
     out_file_name.mkdir(parents=True)
     store = zarr.open(out_file_name, mode="a")
-    scaler = Scaler(method="gaussian", max_layer=5)
-    # scaler = None
+    # scaler = Scaler(method="gaussian", max_layer=5)
+    scaler = None
     write_image(
         stacks_combined,
         group=store,
