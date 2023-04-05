@@ -50,11 +50,13 @@ def main():
         imgs_stacked = da.stack(imgs, axis=0)
         channel_stacks.append(imgs_stacked)
     stacks_combined = da.moveaxis(da.stack(channel_stacks, axis=0), 0, 1)
+    stacks_combined = da.rechunk(stacks_combined, chunks=(1, 1, 1, 2048, 2048))
+    # stacks_combined = da.rechunk(stacks_combined)
 
     out_file_name.mkdir(parents=True)
     store = zarr.open(out_file_name, mode="a")
-    # scaler = Scaler(method="gaussian", max_layer=5)
-    scaler = None
+    scaler = Scaler(method="gaussian", max_layer=5)
+    # scaler = None
     write_image(
         stacks_combined,
         group=store,
