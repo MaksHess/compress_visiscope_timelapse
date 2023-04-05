@@ -5,7 +5,7 @@ import argparse
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import DefaultDict, Sequence
+from typing import DefaultDict, Sequence, TypeAlias
 
 import dask
 import dask.array as da
@@ -50,18 +50,42 @@ def main():
         imgs_stacked = da.stack(imgs, axis=0)
         channel_stacks.append(imgs_stacked)
     stacks_combined = da.moveaxis(da.stack(channel_stacks, axis=0), 0, 1)
-    stacks_combined = da.rechunk(stacks_combined, chunks=(1, 1, 1, 2048, 2048))
-    # stacks_combined = da.rechunk(stacks_combined)
+
+    scaler = Scaler(method="gaussian", max_layer=5)
+    base_chunk = _get_base_chunk(stacks_combined)
+    chunks = _get_pyramid_chunks(base_chunk, scaler)
+
+    stacks_combined = da.rechunk(stacks_combined, chunks=base_chunk)
 
     out_file_name.mkdir(parents=True)
     store = zarr.open(out_file_name, mode="a")
-    scaler = Scaler(method="gaussian", max_layer=5)
-    # scaler = None
-    write_image(
-        stacks_combined,
-        group=store,
-        scaler=scaler,
-    )
+    write_image(stacks_combined, group=store, scaler=scaler, storage_options=chunks)
+
+
+Shape: TypeAlias = tuple[int, int, int, int, int]
+
+
+def _get_pyramid_chunks(base_chunks: Shape, scaler: Scaler) -> list[dict[str, Shape]]:
+    chunks: list[dict[str, Shape]] = []
+    for i in range(scaler.max_layer + 1):
+        chunks.append(
+            {
+                "chunks": (
+                    base_chunks[0],
+                    base_chunks[1],
+                    int(base_chunks[2] * (scaler.downscale * 2) ** i),
+                    int(base_chunks[3] // scaler.downscale**i),
+                    int(base_chunks[4] // scaler.downscale**i),
+                )
+            }
+        )
+    return chunks
+
+
+def _get_base_chunk(stacks_combined: da.Array) -> Shape:
+    shape = stacks_combined.shape
+    chunks = (1, 1, 1) + shape[-2:]
+    return chunks
 
 
 def _parse_parameter_file(fn: str) -> dict[str, str]:
