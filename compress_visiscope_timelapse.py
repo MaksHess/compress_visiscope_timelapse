@@ -96,13 +96,14 @@ def _parse_parameter_file(fn: str) -> dict[str, str]:
 
 def _extract_metadata_from_filename(file_name: str) -> dict[str, str]:
     keys = [
+        "date",
         "condition",
         "channel",
         "site",
         "timepoint",
     ]
     pattern = re.compile(
-        r"^(?P<condition>.*)_(w\d)?(?P<channel>[^_]+)_(?P<site>s\d+)_(?P<timepoint>t\d+)\.stk$"
+        r"^((?P<date>\d*)_)?(?P<condition>.*)_(w\d)?(?P<channel>[^_]+)_(?P<site>s\d+)_(?P<timepoint>t\d+)\.stk$"
     )
     match = pattern.match(file_name)
     metadata = {k: match.group(k) for k in keys}
