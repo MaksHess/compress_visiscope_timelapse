@@ -17,6 +17,9 @@ from ome_zarr.scale import Scaler
 from ome_zarr.writer import write_image, write_multiscale
 from spatial_image import to_spatial_image
 
+# PATTERN_STR = r"^((?P<date>\d*)_)?(?P<condition>.*)_(w\d)?(?P<channel>[^_]+)_(?P<site>s\d+)_(?P<timepoint>t\d+)\.stk$"
+PATTERN_STR = r"^((?P<date>\d*)_)?(?P<condition>.*)_(w\d)?(?P<channel>[^_]+)_(?P<site>s\d+)\.stk$"
+
 
 def main():
     parser = argparse.ArgumentParser(prog="VisiScope Timelapse to Multiscale-OME-Zarr")
@@ -95,16 +98,10 @@ def _parse_parameter_file(fn: str) -> dict[str, str]:
 
 
 def _extract_metadata_from_filename(file_name: str) -> dict[str, str]:
-    keys = [
-        "date",
-        "condition",
-        "channel",
-        "site",
-        "timepoint",
-    ]
     pattern = re.compile(
-        r"^((?P<date>\d*)_)?(?P<condition>.*)_(w\d)?(?P<channel>[^_]+)_(?P<site>s\d+)_(?P<timepoint>t\d+)\.stk$"
+        PATTERN_STR
     )
+    keys = pattern.groupindex.keys()
     match = pattern.match(file_name)
     metadata = {k: match.group(k) for k in keys}
     # metadata["cycle"] = int(metadata["cycle"]) if metadata["cycle"] else None
